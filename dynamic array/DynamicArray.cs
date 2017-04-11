@@ -8,8 +8,17 @@ namespace dynamic_array
 {
     class DynamicArray
     {
+        public delegate void ItemAddedEventHandler(int addedElement, int currentSize);
+
+        public delegate void ArrayResizedEventHandler(int currentSize);
+
+        public event ArrayResizedEventHandler ArrayResized;
+
+        public event ItemAddedEventHandler ItemAdded;
+
         private static readonly log4net.ILog Log =
             log4net.LogManager.GetLogger(System.Reflection.MethodBase.GetCurrentMethod().DeclaringType);
+
         private const int FirstIndexInArray = 0;
         private const int DefaultArraySize = 2;
         private int[] _array;
@@ -55,8 +64,14 @@ namespace dynamic_array
         {
             ResizeIfNecessary(++_lastFilledIndex);
             _array[_lastFilledIndex] = item;
+            OnItemAdded(item);
             Log.Debug("add element = " + item);
             Log.Debug("last filled index = " + _lastFilledIndex);
+        }
+
+        protected virtual void OnItemAdded(int item)
+        {
+            ItemAdded?.Invoke(item, _maxCurrentSize);
         }
 
         private bool IsIndexInRange(int index)
@@ -70,8 +85,14 @@ namespace dynamic_array
             {
                 _maxCurrentSize = index * 2;
                 Array.Resize(ref _array, _maxCurrentSize);
+                OnArrayResized(_maxCurrentSize);
                 Log.Debug("max current size = " + _maxCurrentSize);
             }
+        }
+
+        private void OnArrayResized(int maxCurrentSize)
+        {
+            ArrayResized?.Invoke(maxCurrentSize);
         }
     }
 }
