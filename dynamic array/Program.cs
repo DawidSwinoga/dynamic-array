@@ -1,8 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace dynamic_array
@@ -12,24 +14,32 @@ namespace dynamic_array
         static void Main(string[] args)
         {
             DynamicArray dynamicArray = new DynamicArray();
-            dynamicArray.ItemAdded += (addedItem, currentSize) => Console.WriteLine("Added: " + addedItem + "\t current array size: " + currentSize);
-            dynamicArray.ArrayResized += size => Console.WriteLine("Current array size: " + size);
-            for (int i = 0; i < 39; i++)
+            List<Task> tasks = new List<Task>();
+
+            int threadCount = 10;
+            int iterationPerThreadCount = 10;
+
+            for (int i = 0; i < threadCount; ++i)
             {
-                dynamicArray.Add(5);
+                tasks.Add(Task.Run(() =>
+                        {
+                            for (int j = 0; j < iterationPerThreadCount; ++j)
+                            {
+                                if (!dynamicArray.TryAdd(Thread.CurrentThread.ManagedThreadId))
+                                    Console.WriteLine("Cannot add data to array.");
+                                var watch = Stopwatch.StartNew();
+                                dynamicArray.BlockingAdd(Thread.CurrentThread.ManagedThreadId);
+                                watch.Stop();
+                                Console.WriteLine("Execution time: " + watch.ElapsedMilliseconds + " miliseconds");
+                            }
+                        }
+                    ))
+                    ;
             }
 
-            try
-            {
-                int a = dynamicArray[200];
-            }
-            catch (IndexOutOfRangeException e)
-            {
-                Console.WriteLine(e.Message);
-            }
-            dynamicArray[100] = 10;
-            Console.WriteLine(dynamicArray[99]);
-
+            Task.WaitAll(tasks.ToArray());
+            dynamicArray.SaveToFile("test.txt");
+            Console.WriteLine("Press any key to finish.");
             Console.ReadKey();
         }
     }
