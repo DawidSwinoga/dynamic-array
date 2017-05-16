@@ -1,8 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace dynamic_array
 {
@@ -24,6 +27,7 @@ namespace dynamic_array
         private int[] _array;
         private int _maxCurrentSize;
         private int _lastFilledIndex;
+        protected Object blockingObject;
 
         public DynamicArray() : this(size: DefaultArraySize)
         {
@@ -31,18 +35,16 @@ namespace dynamic_array
 
         public DynamicArray(int size)
         {
+            blockingObject = new object();
             _maxCurrentSize = size;
             _lastFilledIndex = -1;
             _array = new int[_maxCurrentSize];
-            Log.Debug("max current size = " + _maxCurrentSize);
-            Log.Debug("last fillded index = " + _lastFilledIndex + "\n");
         }
 
         public int this[int index]
         {
             get
             {
-                Log.Debug("get index = " + index);
                 if (IsIndexInRange(index))
                 {
                     return _array[index];
@@ -52,21 +54,71 @@ namespace dynamic_array
 
             set
             {
-                ResizeIfNecessary(index);
-                _array[index] = value;
-                _lastFilledIndex = index;
-                Log.Debug("set index = " + index + " value = " + value);
-                Log.Debug("last filled index = " + _lastFilledIndex);
+                Monitor.Enter(blockingObject);
+                try
+                {
+                    ResizeIfNecessary(index);
+                    _array[index] = value;
+                    _lastFilledIndex = index;
+                }
+                catch (Exception e)
+                {
+                    throw e;
+                }
+                finally
+                {
+                    Monitor.Exit(blockingObject);
+                }
             }
         }
 
-        public void Add(int item)
+        public bool TryAdd(int item)
         {
+            if (!Monitor.TryEnter(blockingObject)) return false;
+
+            try
+            {
+                Add(item);
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+            finally
+            {
+                Monitor.Exit(blockingObject);
+            }
+            return true;
+        }
+
+        public void BlockingAdd(int item)
+        {
+            Monitor.Enter(blockingObject);
+            try
+            {
+                Add(item);
+            }
+            catch (Exception e)
+            {
+                throw e;
+            }
+            finally
+            {
+                Monitor.Exit(blockingObject);
+            }
+        }
+
+        public void SaveToFile(string fileName)
+        {
+            File.WriteAllLines(fileName, _array.Select(e => e.ToString()).ToArray());
+        }
+
+        private void Add(int item)
+        {
+            Thread.Sleep(60);
             ResizeIfNecessary(++_lastFilledIndex);
             _array[_lastFilledIndex] = item;
             OnItemAdded(item);
-            Log.Debug("add element = " + item);
-            Log.Debug("last filled index = " + _lastFilledIndex);
         }
 
         protected virtual void OnItemAdded(int item)
@@ -83,10 +135,10 @@ namespace dynamic_array
         {
             if (index >= _maxCurrentSize)
             {
-                _maxCurrentSize = index * 2;
-                Array.Resize(ref _array, _maxCurrentSize);
+                int maxCurrentSize = index * 2;
+                Array.Resize(ref _array, maxCurrentSize);
+                _maxCurrentSize = maxCurrentSize;
                 OnArrayResized(_maxCurrentSize);
-                Log.Debug("max current size = " + _maxCurrentSize);
             }
         }
 
