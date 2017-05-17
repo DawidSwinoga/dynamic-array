@@ -17,13 +17,13 @@ namespace dynamic_array
             List<Task> tasks = new List<Task>();
 
             int threadCount = 10;
-            int iterationPerThreadCount = 10;
+            int iterationPerThread = 10;
 
             for (int i = 0; i < threadCount; ++i)
             {
                 tasks.Add(Task.Run(() =>
                         {
-                            for (int j = 0; j < iterationPerThreadCount; ++j)
+                            for (int j = 0; j < iterationPerThread; ++j)
                             {
                                 if (!dynamicArray.TryAdd(Thread.CurrentThread.ManagedThreadId))
                                     Console.WriteLine("Cannot add data to array.");
